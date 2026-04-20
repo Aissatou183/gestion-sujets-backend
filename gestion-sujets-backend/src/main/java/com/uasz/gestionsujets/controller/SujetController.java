@@ -13,6 +13,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/sujets")
+@CrossOrigin(origins = "*")
 public class SujetController {
 
     private final SujetService sujetService;
@@ -36,14 +37,14 @@ public class SujetController {
         return ResponseEntity.ok(sujetService.listerSujetsValides());
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Sujet> getSujetById(@PathVariable Long id) {
-        return ResponseEntity.ok(sujetService.getSujetById(id));
-    }
-
     @GetMapping("/enseignant/{enseignantId}")
     public ResponseEntity<List<Sujet>> listerSujetsParEnseignant(@PathVariable Long enseignantId) {
         return ResponseEntity.ok(sujetService.listerSujetsParEnseignant(enseignantId));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Sujet> getSujetById(@PathVariable Long id) {
+        return ResponseEntity.ok(sujetService.getSujetById(id));
     }
 
     @PutMapping("/{id}/valider")

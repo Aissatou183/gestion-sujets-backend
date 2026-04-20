@@ -31,6 +31,8 @@ public class SujetService {
         sujet.setEnseignantId(request.getEnseignantId());
         sujet.setStatut(StatutSujet.PROPOSE);
         sujet.setDateProposition(LocalDate.now());
+        sujet.setDateValidation(null);
+
         return sujetRepository.save(sujet);
     }
 
@@ -48,18 +50,24 @@ public class SujetService {
 
     public Sujet getSujetById(Long id) {
         return sujetRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Sujet introuvable"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Sujet introuvable avec l'identifiant : " + id));
     }
 
     public Sujet validerSujet(Long id) {
         Sujet sujet = getSujetById(id);
 
         if (sujet.getStatut() == StatutSujet.CHOISI) {
-            throw new IllegalArgumentException("Impossible de valider un sujet déjà choisi");
+            throw new IllegalArgumentException("Impossible de valider un sujet déjà choisi.");
+        }
+
+        if (sujet.getStatut() == StatutSujet.VALIDE) {
+            throw new IllegalArgumentException("Ce sujet est déjà validé.");
         }
 
         sujet.setStatut(StatutSujet.VALIDE);
         sujet.setDateValidation(LocalDate.now());
+
         return sujetRepository.save(sujet);
     }
 
@@ -67,10 +75,16 @@ public class SujetService {
         Sujet sujet = getSujetById(id);
 
         if (sujet.getStatut() == StatutSujet.CHOISI) {
-            throw new IllegalArgumentException("Impossible de rejeter un sujet déjà choisi");
+            throw new IllegalArgumentException("Impossible de rejeter un sujet déjà choisi.");
+        }
+
+        if (sujet.getStatut() == StatutSujet.REJETE) {
+            throw new IllegalArgumentException("Ce sujet est déjà rejeté.");
         }
 
         sujet.setStatut(StatutSujet.REJETE);
+        sujet.setDateValidation(null);
+
         return sujetRepository.save(sujet);
     }
 
@@ -78,25 +92,25 @@ public class SujetService {
         Sujet sujet = getSujetById(request.getSujetId());
 
         if (sujet.getStatut() != StatutSujet.VALIDE) {
-            throw new IllegalArgumentException("Seuls les sujets validés peuvent être choisis");
+            throw new IllegalArgumentException("Seuls les sujets validés peuvent être choisis.");
         }
 
         if (choixSujetRepository.existsBySujetId(request.getSujetId())) {
-            throw new IllegalArgumentException("Ce sujet a déjà été choisi");
+            throw new IllegalArgumentException("Ce sujet a déjà été choisi.");
         }
 
         if (choixSujetRepository.existsByEtudiantId(request.getEtudiantId())) {
-            throw new IllegalArgumentException("Cet étudiant a déjà choisi un sujet");
+            throw new IllegalArgumentException("Cet étudiant a déjà choisi un sujet.");
         }
 
         sujet.setStatut(StatutSujet.CHOISI);
         sujetRepository.save(sujet);
 
-        ChoixSujet choix = new ChoixSujet();
-        choix.setSujetId(request.getSujetId());
-        choix.setEtudiantId(request.getEtudiantId());
-        choix.setDateChoix(LocalDate.now());
+        ChoixSujet choixSujet = new ChoixSujet();
+        choixSujet.setSujetId(request.getSujetId());
+        choixSujet.setEtudiantId(request.getEtudiantId());
+        choixSujet.setDateChoix(LocalDate.now());
 
-        return choixSujetRepository.save(choix);
+        return choixSujetRepository.save(choixSujet);
     }
 }
