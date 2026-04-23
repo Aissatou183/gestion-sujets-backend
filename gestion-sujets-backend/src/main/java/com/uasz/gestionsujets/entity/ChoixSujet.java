@@ -1,10 +1,23 @@
 package com.uasz.gestionsujets.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDate;
+import lombok.*;
+
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "choix_sujets")
+@Table(
+        name = "choix_sujets",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = "sujetId"),
+                @UniqueConstraint(columnNames = "etudiantId")
+        }
+)
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ChoixSujet {
 
     @Id
@@ -14,51 +27,9 @@ public class ChoixSujet {
     @Column(nullable = false)
     private Long sujetId;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private Long etudiantId;
 
-    @Column(nullable = false, unique = true)
-    private Long sujetUniqueId;
-
-    private LocalDate dateChoix;
-
-    public ChoixSujet() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Long getSujetId() {
-        return sujetId;
-    }
-
-    public void setSujetId(Long sujetId) {
-        this.sujetId = sujetId;
-        this.sujetUniqueId = sujetId;
-    }
-
-    public Long getEtudiantId() {
-        return etudiantId;
-    }
-
-    public void setEtudiantId(Long etudiantId) {
-        this.etudiantId = etudiantId;
-    }
-
-    public Long getSujetUniqueId() {
-        return sujetUniqueId;
-    }
-
-    public void setSujetUniqueId(Long sujetUniqueId) {
-        this.sujetUniqueId = sujetUniqueId;
-    }
-
-    public LocalDate getDateChoix() {
-        return dateChoix;
-    }
-
-    public void setDateChoix(LocalDate dateChoix) {
-        this.dateChoix = dateChoix;
-    }
+    @Column(nullable = false)
+    private LocalDateTime dateChoix;
 }

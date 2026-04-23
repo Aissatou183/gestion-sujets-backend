@@ -1,17 +1,24 @@
 package com.uasz.gestionsujets.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDate;
+import lombok.*;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "sujets")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Sujet {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 200)
+    @Column(nullable = false, length = 150)
     private String titre;
 
     @Column(nullable = false, columnDefinition = "TEXT")
@@ -21,68 +28,11 @@ public class Sujet {
     private Long enseignantId;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private StatutSujet statut;
+
     @Column(nullable = false)
-    private StatutSujet statut = StatutSujet.PROPOSE;
+    private LocalDateTime dateProposition;
 
-    private LocalDate dateProposition;
-    private LocalDate dateValidation;
-
-    public Sujet() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getTitre() {
-        return titre;
-    }
-
-    public void setTitre(String titre) {
-        this.titre = titre;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public Long getEnseignantId() {
-        return enseignantId;
-    }
-
-    public void setEnseignantId(Long enseignantId) {
-        this.enseignantId = enseignantId;
-    }
-
-    public StatutSujet getStatut() {
-        return statut;
-    }
-
-    public void setStatut(StatutSujet statut) {
-        this.statut = statut;
-    }
-
-    public LocalDate getDateProposition() {
-        return dateProposition;
-    }
-
-    public void setDateProposition(LocalDate dateProposition) {
-        this.dateProposition = dateProposition;
-    }
-
-    public LocalDate getDateValidation() {
-        return dateValidation;
-    }
-
-    public void setDateValidation(LocalDate dateValidation) {
-        this.dateValidation = dateValidation;
-    }
+    private LocalDateTime dateValidation;
 }

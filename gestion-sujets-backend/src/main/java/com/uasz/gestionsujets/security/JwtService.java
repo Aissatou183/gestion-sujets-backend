@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.util.Date;
 
 @Service
 public class JwtService {
@@ -15,18 +14,28 @@ public class JwtService {
     @Value("${jwt.secret}")
     private String secret;
 
-    private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes());
-    }
-
     public String extractUsername(String token) {
         return extractAllClaims(token).getSubject();
     }
 
+    public String extractRole(String token) {
+        return extractAllClaims(token).get("role", String.class);
+    }
+
+    public Long extractUserId(String token) {
+        Object value = extractAllClaims(token).get("id");
+
+        if (value instanceof Integer i) return i.longValue();
+        if (value instanceof Long l) return l;
+        if (value instanceof String s) return Long.parseLong(s);
+
+        return null;
+    }
+
     public boolean isTokenValid(String token) {
         try {
-            Claims claims = extractAllClaims(token);
-            return claims.getExpiration().after(new Date());
+            extractAllClaims(token);
+            return true;
         } catch (Exception e) {
             return false;
         }
@@ -38,5 +47,9 @@ public class JwtService {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    private SecretKey getSigningKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes());
     }
 }

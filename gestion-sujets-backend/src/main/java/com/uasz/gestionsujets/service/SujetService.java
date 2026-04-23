@@ -1,116 +1,215 @@
 package com.uasz.gestionsujets.service;
 
+import com.uasz.gestionsujets.client.UtilisateurClient;
+import com.uasz.gestionsujets.dto.AuthenticatedUserDto;
 import com.uasz.gestionsujets.dto.ChoixSujetRequest;
+import com.uasz.gestionsujets.dto.ChoixSujetResponse;
 import com.uasz.gestionsujets.dto.SujetRequest;
+import com.uasz.gestionsujets.dto.SujetResponse;
+import com.uasz.gestionsujets.dto.UtilisateurResponse;
 import com.uasz.gestionsujets.entity.ChoixSujet;
 import com.uasz.gestionsujets.entity.StatutSujet;
 import com.uasz.gestionsujets.entity.Sujet;
+import com.uasz.gestionsujets.exception.BadRequestException;
 import com.uasz.gestionsujets.exception.ResourceNotFoundException;
 import com.uasz.gestionsujets.repository.ChoixSujetRepository;
 import com.uasz.gestionsujets.repository.SujetRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class SujetService {
 
     private final SujetRepository sujetRepository;
     private final ChoixSujetRepository choixSujetRepository;
+    private final UtilisateurClient utilisateurClient;
 
-    public SujetService(SujetRepository sujetRepository, ChoixSujetRepository choixSujetRepository) {
-        this.sujetRepository = sujetRepository;
-        this.choixSujetRepository = choixSujetRepository;
-    }
+    public SujetResponse proposer(SujetRequest request) {
+        AuthenticatedUserDto currentUser = getCurrentUser();
 
-    public Sujet proposerSujet(SujetRequest request) {
-        Sujet sujet = new Sujet();
-        sujet.setTitre(request.getTitre());
-        sujet.setDescription(request.getDescription());
-        sujet.setEnseignantId(request.getEnseignantId());
-        sujet.setStatut(StatutSujet.PROPOSE);
-        sujet.setDateProposition(LocalDate.now());
-        sujet.setDateValidation(null);
-
-        return sujetRepository.save(sujet);
-    }
-
-    public List<Sujet> listerTousLesSujets() {
-        return sujetRepository.findAll();
-    }
-
-    public List<Sujet> listerSujetsValides() {
-        return sujetRepository.findByStatut(StatutSujet.VALIDE);
-    }
-
-    public List<Sujet> listerSujetsParEnseignant(Long enseignantId) {
-        return sujetRepository.findByEnseignantId(enseignantId);
-    }
-
-    public Sujet getSujetById(Long id) {
-        return sujetRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Sujet introuvable avec l'identifiant : " + id));
-    }
-
-    public Sujet validerSujet(Long id) {
-        Sujet sujet = getSujetById(id);
-
-        if (sujet.getStatut() == StatutSujet.CHOISI) {
-            throw new IllegalArgumentException("Impossible de valider un sujet déjà choisi.");
+        if (!"ENSEIGNANT".equalsIgnoreCase(currentUser.getRole())) {
+            throw new BadRequestException("Seul un enseignant peut proposer un sujet");
         }
 
-        if (sujet.getStatut() == StatutSujet.VALIDE) {
-            throw new IllegalArgumentException("Ce sujet est déjà validé.");
+        UtilisateurResponse enseignant = utilisateurClient.getUtilisateurById(currentUser.getId());
+
+        if (enseignant == null || !"ENSEIGNANT".equalsIgnoreCase(enseignant.getRole())) {
+            throw new BadRequestException("Utilisateur connecté invalide");
+        }
+
+        Sujet sujet = Sujet.builder()
+                .titre(request.getTitre())
+                .description(request.getDescription())
+                .enseignantId(currentUser.getId())
+                .statut(StatutSujet.PROPOSE)
+                .dateProposition(LocalDateTime.now())
+                .build();
+
+        sujet = sujetRepository.save(sujet);
+        return mapToSujetResponse(sujet);
+    }
+
+    public List<SujetResponse> findAll() {
+        return sujetRepository.findAll()
+                .stream()
+                .map(this::mapToSujetResponse)
+                .toList();
+    }
+
+    public List<SujetResponse> findDisponiblesPourChoix() {
+        return sujetRepository.findByStatut(StatutSujet.PROPOSE)
+                .stream()
+                .map(this::mapToSujetResponse)
+                .toList();
+    }
+
+    public SujetResponse findById(Long id) {
+        return mapToSujetResponse(getSujetOrThrow(id));
+    }
+
+    public List<SujetResponse> findByEnseignantId(Long enseignantId) {
+        return sujetRepository.findByEnseignantId(enseignantId)
+                .stream()
+                .map(this::mapToSujetResponse)
+                .toList();
+    }
+
+    public List<SujetResponse> findMesSujets() {
+        AuthenticatedUserDto currentUser = getCurrentUser();
+
+        if (!"ENSEIGNANT".equalsIgnoreCase(currentUser.getRole())) {
+            throw new BadRequestException("Seul un enseignant peut consulter ses sujets");
+        }
+
+        return sujetRepository.findByEnseignantId(currentUser.getId())
+                .stream()
+                .map(this::mapToSujetResponse)
+                .toList();
+    }
+
+    public SujetResponse valider(Long id) {
+        Sujet sujet = getSujetOrThrow(id);
+
+        if (sujet.getStatut() != StatutSujet.EN_ATTENTE_VALIDATION) {
+            throw new BadRequestException("Seul un sujet choisi en attente peut être validé");
         }
 
         sujet.setStatut(StatutSujet.VALIDE);
-        sujet.setDateValidation(LocalDate.now());
+        sujet.setDateValidation(LocalDateTime.now());
 
-        return sujetRepository.save(sujet);
+        sujet = sujetRepository.save(sujet);
+        return mapToSujetResponse(sujet);
     }
 
-    public Sujet rejeterSujet(Long id) {
-        Sujet sujet = getSujetById(id);
+    public SujetResponse rejeter(Long id) {
+        Sujet sujet = getSujetOrThrow(id);
 
-        if (sujet.getStatut() == StatutSujet.CHOISI) {
-            throw new IllegalArgumentException("Impossible de rejeter un sujet déjà choisi.");
-        }
-
-        if (sujet.getStatut() == StatutSujet.REJETE) {
-            throw new IllegalArgumentException("Ce sujet est déjà rejeté.");
+        if (sujet.getStatut() != StatutSujet.EN_ATTENTE_VALIDATION) {
+            throw new BadRequestException("Seul un sujet choisi en attente peut être rejeté");
         }
 
         sujet.setStatut(StatutSujet.REJETE);
-        sujet.setDateValidation(null);
+        sujet.setDateValidation(LocalDateTime.now());
 
-        return sujetRepository.save(sujet);
+        sujet = sujetRepository.save(sujet);
+        return mapToSujetResponse(sujet);
     }
 
-    public ChoixSujet choisirSujet(ChoixSujetRequest request) {
-        Sujet sujet = getSujetById(request.getSujetId());
+    public ChoixSujetResponse choisir(ChoixSujetRequest request) {
+        AuthenticatedUserDto currentUser = getCurrentUser();
 
-        if (sujet.getStatut() != StatutSujet.VALIDE) {
-            throw new IllegalArgumentException("Seuls les sujets validés peuvent être choisis.");
+        if (!"ETUDIANT".equalsIgnoreCase(currentUser.getRole())) {
+            throw new BadRequestException("Seul un étudiant peut choisir un sujet");
+        }
+
+        Sujet sujet = getSujetOrThrow(request.getSujetId());
+
+        if (sujet.getStatut() != StatutSujet.PROPOSE) {
+            throw new BadRequestException("Ce sujet n'est plus disponible pour être choisi");
         }
 
         if (choixSujetRepository.existsBySujetId(request.getSujetId())) {
-            throw new IllegalArgumentException("Ce sujet a déjà été choisi.");
+            throw new BadRequestException("Ce sujet a déjà été choisi");
         }
 
-        if (choixSujetRepository.existsByEtudiantId(request.getEtudiantId())) {
-            throw new IllegalArgumentException("Cet étudiant a déjà choisi un sujet.");
+        if (choixSujetRepository.existsByEtudiantId(currentUser.getId())) {
+            throw new BadRequestException("Cet étudiant a déjà choisi un sujet");
         }
 
-        sujet.setStatut(StatutSujet.CHOISI);
+        UtilisateurResponse etudiant = utilisateurClient.getUtilisateurById(currentUser.getId());
+
+        if (etudiant == null || !"ETUDIANT".equalsIgnoreCase(etudiant.getRole())) {
+            throw new BadRequestException("Utilisateur connecté invalide");
+        }
+
+        ChoixSujet choix = ChoixSujet.builder()
+                .sujetId(request.getSujetId())
+                .etudiantId(currentUser.getId())
+                .dateChoix(LocalDateTime.now())
+                .build();
+
+        choix = choixSujetRepository.save(choix);
+
+        sujet.setStatut(StatutSujet.EN_ATTENTE_VALIDATION);
         sujetRepository.save(sujet);
 
-        ChoixSujet choixSujet = new ChoixSujet();
-        choixSujet.setSujetId(request.getSujetId());
-        choixSujet.setEtudiantId(request.getEtudiantId());
-        choixSujet.setDateChoix(LocalDate.now());
+        return ChoixSujetResponse.builder()
+                .id(choix.getId())
+                .sujetId(choix.getSujetId())
+                .sujetTitre(sujet.getTitre())
+                .etudiantId(choix.getEtudiantId())
+                .etudiantNomComplet(etudiant.getPrenom() + " " + etudiant.getNom())
+                .dateChoix(choix.getDateChoix())
+                .build();
+    }
 
-        return choixSujetRepository.save(choixSujet);
+    private AuthenticatedUserDto getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new BadRequestException("Utilisateur non authentifié");
+        }
+
+        Object principal = authentication.getPrincipal();
+
+        if (!(principal instanceof AuthenticatedUserDto user)) {
+            throw new BadRequestException("Informations utilisateur invalides");
+        }
+
+        return user;
+    }
+
+    private Sujet getSujetOrThrow(Long id) {
+        return sujetRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Sujet introuvable avec l'id : " + id));
+    }
+
+    private SujetResponse mapToSujetResponse(Sujet sujet) {
+        String enseignantNomComplet = null;
+
+        try {
+            UtilisateurResponse enseignant = utilisateurClient.getUtilisateurById(sujet.getEnseignantId());
+            if (enseignant != null) {
+                enseignantNomComplet = enseignant.getPrenom() + " " + enseignant.getNom();
+            }
+        } catch (Exception ignored) {
+        }
+
+        return SujetResponse.builder()
+                .id(sujet.getId())
+                .titre(sujet.getTitre())
+                .description(sujet.getDescription())
+                .enseignantId(sujet.getEnseignantId())
+                .enseignantNomComplet(enseignantNomComplet)
+                .statut(sujet.getStatut())
+                .dateProposition(sujet.getDateProposition())
+                .dateValidation(sujet.getDateValidation())
+                .build();
     }
 }

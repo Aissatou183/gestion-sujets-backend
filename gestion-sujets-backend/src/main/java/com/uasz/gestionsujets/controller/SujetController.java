@@ -1,11 +1,12 @@
 package com.uasz.gestionsujets.controller;
 
 import com.uasz.gestionsujets.dto.ChoixSujetRequest;
+import com.uasz.gestionsujets.dto.ChoixSujetResponse;
 import com.uasz.gestionsujets.dto.SujetRequest;
-import com.uasz.gestionsujets.entity.ChoixSujet;
-import com.uasz.gestionsujets.entity.Sujet;
+import com.uasz.gestionsujets.dto.SujetResponse;
 import com.uasz.gestionsujets.service.SujetService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,52 +14,54 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/sujets")
-@CrossOrigin(origins = "*")
+@RequiredArgsConstructor
+@CrossOrigin(origins = "http://localhost:5173")
 public class SujetController {
 
     private final SujetService sujetService;
 
-    public SujetController(SujetService sujetService) {
-        this.sujetService = sujetService;
-    }
-
     @PostMapping
-    public ResponseEntity<Sujet> proposerSujet(@Valid @RequestBody SujetRequest request) {
-        return ResponseEntity.ok(sujetService.proposerSujet(request));
+    public ResponseEntity<SujetResponse> proposer(@Valid @RequestBody SujetRequest request) {
+        return ResponseEntity.ok(sujetService.proposer(request));
     }
 
     @GetMapping
-    public ResponseEntity<List<Sujet>> listerTousLesSujets() {
-        return ResponseEntity.ok(sujetService.listerTousLesSujets());
+    public ResponseEntity<List<SujetResponse>> findAll() {
+        return ResponseEntity.ok(sujetService.findAll());
     }
 
-    @GetMapping("/valides")
-    public ResponseEntity<List<Sujet>> listerSujetsValides() {
-        return ResponseEntity.ok(sujetService.listerSujetsValides());
+    @GetMapping("/disponibles")
+    public ResponseEntity<List<SujetResponse>> findDisponiblesPourChoix() {
+        return ResponseEntity.ok(sujetService.findDisponiblesPourChoix());
     }
 
-    @GetMapping("/enseignant/{enseignantId}")
-    public ResponseEntity<List<Sujet>> listerSujetsParEnseignant(@PathVariable Long enseignantId) {
-        return ResponseEntity.ok(sujetService.listerSujetsParEnseignant(enseignantId));
+    @GetMapping("/mes-sujets")
+    public ResponseEntity<List<SujetResponse>> findMesSujets() {
+        return ResponseEntity.ok(sujetService.findMesSujets());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Sujet> getSujetById(@PathVariable Long id) {
-        return ResponseEntity.ok(sujetService.getSujetById(id));
+    public ResponseEntity<SujetResponse> findById(@PathVariable Long id) {
+        return ResponseEntity.ok(sujetService.findById(id));
+    }
+
+    @GetMapping("/enseignant/{enseignantId}")
+    public ResponseEntity<List<SujetResponse>> findByEnseignantId(@PathVariable Long enseignantId) {
+        return ResponseEntity.ok(sujetService.findByEnseignantId(enseignantId));
     }
 
     @PutMapping("/{id}/valider")
-    public ResponseEntity<Sujet> validerSujet(@PathVariable Long id) {
-        return ResponseEntity.ok(sujetService.validerSujet(id));
+    public ResponseEntity<SujetResponse> valider(@PathVariable Long id) {
+        return ResponseEntity.ok(sujetService.valider(id));
     }
 
     @PutMapping("/{id}/rejeter")
-    public ResponseEntity<Sujet> rejeterSujet(@PathVariable Long id) {
-        return ResponseEntity.ok(sujetService.rejeterSujet(id));
+    public ResponseEntity<SujetResponse> rejeter(@PathVariable Long id) {
+        return ResponseEntity.ok(sujetService.rejeter(id));
     }
 
     @PostMapping("/choisir")
-    public ResponseEntity<ChoixSujet> choisirSujet(@Valid @RequestBody ChoixSujetRequest request) {
-        return ResponseEntity.ok(sujetService.choisirSujet(request));
+    public ResponseEntity<ChoixSujetResponse> choisir(@Valid @RequestBody ChoixSujetRequest request) {
+        return ResponseEntity.ok(sujetService.choisir(request));
     }
 }
